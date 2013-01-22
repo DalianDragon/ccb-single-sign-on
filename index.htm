@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Church Community Builder Single Sign-On Demo</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="">
+		<meta name="author" content="">
+
+		<link href="_bootstrap/css/bootstrap.css" rel="stylesheet">
+		<style type="text/css">
+			body {
+				padding-top: 40px;
+				padding-bottom: 40px;
+				background-color: #eaeaea;
+			}
+			.templates, .cross-domain-content {
+				display: none;
+			}
+		</style>
+
+		<!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+		<!--[if lt IE 9]>
+		<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+
+	</head>
+
+	<body>
+
+		<div class="container">
+			<div class="row message">
+			</div>
+			<div class="row">
+				<div class="span4 well">
+					<form class="form-signin">
+						<h2 class="form-signin-heading">Please sign in</h2>
+						<input id="username" type="text" name="username" class="input-block-level" placeholder="Email address">
+						<input id="password" type="password" name="password" class="input-block-level" placeholder="Password">
+						<button class="btn btn-primary" type="submit">Sign in</button>
+					</form>
+				</div>
+				<div class="span7 well">
+					<p class="lead">How this demo works</p>
+					<dl class="dl-horizontal">
+						<dt>Initial Request</dt>
+						<dd>When users submit their CCB credentials here, they'll be sending them <em>to your server</em> via an <a href="http://api.jquery.com/jQuery.post/" target="_blank" >AJAX POST</a> to <code>single_sign_on.php</code>.</dd>
+						<dt>Call CCB API</dt>
+						<dd>In <code>single_sign_on.php</code> we'll make a <a href="http://php.net/manual/en/book.curl.php" target="_blank">curl</a> request to the CCB API. We'll call <code>individual_profile_from_login_password</code> in an attempt to retrieve a valid profile using the credentials sent in the first step.</dd>
+						<dt>Process Response</dt>
+						<dd>If the authentication is valid, we'll get a full profile. We can use this data in our own app, and we can even call other additional services related to the user (now that we know who they are). We can also handle failed login attempts at this point. In this example, we'll simply issue a JSON response with a success or failure.</dd>
+						<dt>Create CCB Session</dt>
+						<dd>Now that we know the credentials are valid, we need a way to establish a valid CCB solution session <em>without</em> redirecting the user. Since we are restricted by <a href="https://developer.mozilla.org/en-US/docs/HTTP/Access_control_CORS" target="_blank" >cross-site HTTP requests</a>, we'll use JavaScript, jQuery, and an iframe to perform a cross-site login to the CCB solution login page.</dd>
+						<dt>Finished</dt>
+						<dd>We've created a callback function so that we can finish any other code <em>after</em> the iframe is finished loading (and the user is logged in to the CCB solution. In this case, I'm simply removing the iframe.</dd>
+						<dt><em>Other Ideas</em></dt>
+						<dd>Using this demo as a model you can also render CCB forms that can automatically <em>match</em> users. Simply add an additional (after this process when a user has a valid session) to either POST a form directly to the solution or follow this pattern to submit your own iframe wrapped form to the solution (to simulate an AJAX style interaction <em>cross-site</em></dd>
+					</dl>
+				</div>
+			</div>
+			<div class="cross-domain-content"></div>
+
+		</div> <!-- /container -->
+
+		<div class="templates">
+			<div class="alert alert-error">
+				<button type="button" class="close" data-dismiss="alert">&times;</button>
+				<strong>Warning!</strong> You have entered an invalid username and password.
+			</div>
+			<div class="alert success">
+				<button type="button" class="close" data-dismiss="alert">&times;</button>
+				<strong>Success!</strong> You have successfully called the API, retrieved a profile, and used an iframe to create a valid session on your 
+				CCB solution! You can test your session by attempting to visit your solution's index page 
+			</div>
+		</div> <!-- /templates -->
+
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+		<script src="_bootstrap/js/bootstrap.js"></script>
+		<script>
+			$(document).ready(function() {
+				
+				$('.form-signin').on('submit', function(e) {
+					// prevent the default behavoir of a form post
+					e.preventDefault();
+					
+					// initialize variables (change the domain variable to match your CCB solution URL, including the trailing slash)
+					var domain = 'https://YOURSUBDOMAIN.ccbchurch.com/';
+					var username = $('#username').val();
+					var password = $('#password').val();
+					var formData = {
+						'username' : username,
+						'password' : password,
+						'ajax' : 1
+					};
+
+					$.post('single_sign_on.php', formData, function(data) {
+						// handle a successful response with a successful login
+						if (data.success === true) {
+							var elements = {
+								'ax' : 'login',
+								'form[login]' : username,
+								'form[password]' : password
+							};
+							postCrossDomain(domain, elements);
+						}
+						// handle a successful response with a bad login
+						else {
+							// the API call works fine, but the credentials were bad
+							$('.templates .alert.alert-error').clone().appendTo('.message');
+						}
+					}, 'json')
+					.error(function() {
+						// handle errors (such as 500, 302, etc)
+					});
+				});
+			});
+
+			function postCrossDomain(domain, elements) {
+
+				// initialize a unique timestamp to name and target the iframe
+				var ts = new Date().getTime();
+				
+				// build an iframe object and bind a callback function for when it's done loading
+				var iframe = $('<iframe></iframe>').attr({
+					'name' : ts,
+					'id' : ts
+				}).load(postCrossDomainCallback(domain));
+
+				// build a form object and target the iframe
+				var form = $('<form></form>').attr({
+					'action' : domain + 'login.php',
+					'target' : ts,
+					'method' : 'post'
+				});
+
+				// inject the cross domain iframe and form into the DOM
+				$('.container .cross-domain-content').append(iframe).append(form);
+
+				// loop through the form elements and build/inject them into the form
+				if (typeof elements === 'object') {
+					$.each(elements, function(index, value) {
+						form.append('<input type="text" name="' + index + '" value="' + value + '" />');
+					});
+				}
+
+				// submit the form
+				form.submit();
+			}
+
+			function postCrossDomainCallback(domain) {
+				// use this function to perform any additional logic AFTER the user is logged in
+
+				// show a success message
+				$('.templates .alert.success').clone().appendTo('.message');
+				$('.message .alert.success').append('<a href="' + domain + 'index.php" target="_blank">directly</a>');
+
+				// clean up the iframe and form (no longer needed in the DOM)
+				$('.cross-domain-content').empty();
+			}
+
+		</script>
+
+	</body>
+</html>
