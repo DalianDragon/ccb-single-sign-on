@@ -16,23 +16,14 @@ Following the patterns in this demo you can build a single sign-on interface for
 
 ###Setup
 
-This demo includes just a few hard coded references for you to change:
-
-* A CCB solution URL (your CCB solution domain name)
-* An API username
-* An API password
-
-In `index.htm` find
-
-	var domain = 'https://YOURSUBDOMAIN.ccbchurch.com/';
+This demo includes a hard coded API username and password:
 
 In `single_sign_on.php` find
 
 	$api_username = 'your_api_username';
 	$api_password = 'your_api_password';
-	$ccb_domain = 'https://YOURSUBDOMAIN.ccbchurch.com';
 
-Past that, you should be able to use this code *as is* to try it out for yourself.
+Past that, you should be able to use this code *as is* to try it out for yourself. Simply copy everything onto your web server.
 
 **One Warning**: It's poor practice to store your API username / password in your code (as I've done in this demo). You might consider encrypting it in either a config file or database.
 

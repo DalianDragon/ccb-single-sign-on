@@ -6,6 +6,8 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="description" content="">
 		<meta name="author" content="">
+		<meta http-equiv="Cache-control" content="no-store">
+		<meta http-equiv="Cache-control" content="no-cache">
 
 		<link href="_bootstrap/css/bootstrap.css" rel="stylesheet">
 		<style type="text/css">
@@ -14,8 +16,11 @@
 				padding-bottom: 40px;
 				background-color: #eaeaea;
 			}
-			.templates, .cross-domain-content {
+			.templates, .cross-domain-content, .iframe-type-wrapper {
 				display: none;
+			}
+			#add-form {
+				margin-bottom: 8px;
 			}
 		</style>
 
@@ -32,15 +37,21 @@
 			<div class="row message">
 			</div>
 			<div class="row">
-				<div class="span4 well">
-					<form class="form-signin">
+				<div class="span5 well">
+					<form class="form-signin" autocomplete="off">
 						<h2 class="form-signin-heading">Please sign in</h2>
-						<input id="username" type="text" name="username" class="input-block-level" placeholder="Email address">
+						<input id="username" type="text" name="username" class="input-block-level" placeholder="Username">
 						<input id="password" type="password" name="password" class="input-block-level" placeholder="Password">
+						<label for="domain">https://<input id="domain" type="text" name="domain" class="input-small" placeholder="subdomain">.ccbchurch.com</label>
+						<input id="add-form" type="checkbox" name="add_form" value="1" /> Also, display a logged-in form with the form_id of <input type="text" name="form-id" value="" id="form-id" class="input-small" placeholder="Form ID">
+						<div class="iframe-type-wrapper">
+							<label for="traditional-iframe" class="radio"><input type="radio" class="iframe-type" name="iframe_type" value="traditional" id="traditional-iframe" checked="checked"> Render the CCB form using a traditional iframe </label>
+							<label for="hidden-iframe" class="radio"><input type="radio" class="iframe-type" name="iframe_type" value="hidden" id="hidden-iframe"> Render a copy of the CCB form locally and use a hidden iframe to simulate an AJAX call </label>
+						</div>
 						<button class="btn btn-primary" type="submit">Sign in</button>
 					</form>
 				</div>
-				<div class="span7 well">
+				<div class="span6 well">
 					<p class="lead">How this demo works</p>
 					<dl class="dl-horizontal">
 						<dt>Initial Request</dt>
@@ -50,15 +61,20 @@
 						<dt>Process Response</dt>
 						<dd>If the authentication is valid, we'll get a full profile. We can use this data in our own app, and we can even call other additional services related to the user (now that we know who they are). We can also handle failed login attempts at this point. In this example, we'll simply issue a JSON response with a success or failure.</dd>
 						<dt>Create CCB Session</dt>
-						<dd>Now that we know the credentials are valid, we need a way to establish a valid CCB solution session <em>without</em> redirecting the user. Since we are restricted by <a href="https://developer.mozilla.org/en-US/docs/HTTP/Access_control_CORS" target="_blank" >cross-site HTTP requests</a>, we'll use JavaScript, jQuery, and an iframe to perform a cross-site login to the CCB solution login page.</dd>
+						<dd>Now that we know the credentials are valid, we need a way to establish a valid CCB solution session <em>without</em> redirecting the user. Since we are restricted by <a href="https://developer.mozilla.org/en-US/docs/HTTP/Access_control_CORS" target="_blank" >cross-site HTTP requests</a>, we'll use JavaScript, jQuery, and a hidden iframe to perform a cross-site login to the CCB solution login page.</dd>
 						<dt>Finished</dt>
-						<dd>We've created a callback function so that we can finish any other code <em>after</em> the iframe is finished loading (and the user is logged in to the CCB solution. In this case, I'm simply removing the iframe.</dd>
-						<dt><em>Other Ideas</em></dt>
-						<dd>Using this demo as a model you can also render CCB forms that can automatically <em>match</em> users. Simply add an additional (after this process when a user has a valid session) to either POST a form directly to the solution or follow this pattern to submit your own iframe wrapped form to the solution (to simulate an AJAX style interaction <em>cross-site</em></dd>
+						<dd>You should now have a valid CCB solution session (and have never left this page). At this point a callback function <code>afterLogin</code> has been called. We can go even further now with logged-in forms.</dd>
+						<dt>Logged-in Form</dt>
+						<dd>If you checked &quot;Also display a logged-in form&quot; and entered a valid form id from your solution, we'll render a form.</dd>
+						<dt>Traditional iframe</dt>
+						<dd>If you selected Traditional iframe, we very simply append an iframe to the form. You should see that the content shows you're logged-in.</dd>
+						<dt>Copy Form Locally</dt>
+						<dd>This might be confusing, but simply put, we're just rendering a real copy of the CCB form on this page. (I happen to render the form dynamically based on a valid form id from the login form). But you can certainly hard code your own form that matches the form elements in your CCB form if you wish. This option allows you to skin / layout your form to your liking on your site (whereas traditional iframe contents cannot be altered). Now we simply use the same hidden iframe trick (from the login form) to submit a CCB form. Because your browser has a valid session, it should be automatically matched.</dd>
 					</dl>
 				</div>
 			</div>
-			<div class="cross-domain-content"></div>
+			<div class="row cross-domain-content"></div>
+			<div class="row form-content"></div>
 
 		</div> <!-- /container -->
 
@@ -72,36 +88,83 @@
 				<strong>Success!</strong> You have successfully called the API, retrieved a profile, and used an iframe to create a valid session on your 
 				CCB solution! You can test your session by attempting to visit your solution's index page 
 			</div>
+			<div class="example-form">
+			</div>
 		</div> <!-- /templates -->
 
 		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
 		<script src="_bootstrap/js/bootstrap.js"></script>
 		<script>
-			$(document).ready(function() {
-				
-				$('.form-signin').on('submit', function(e) {
-					// prevent the default behavoir of a form post
-					e.preventDefault();
-					
-					// initialize variables (change the domain variable to match your CCB solution URL, including the trailing slash)
-					var domain = 'https://YOURSUBDOMAIN.ccbchurch.com/';
-					var username = $('#username').val();
-					var password = $('#password').val();
-					var formData = {
-						'username' : username,
-						'password' : password,
-						'ajax' : 1
+			// a simple object to organize the client side code
+			var singleSignOn = {
+
+				// a convenient way to store options inside the scope of this object
+				config : {
+					username : '',
+					password : '',
+					domain : '',
+					formId : '',
+					individual : {}
+				},
+
+				// initialize the app
+				initialize : function() {
+					var self = this;
+
+					// when you submit the login form with user credentials, call submitLoginForm
+					$('.form-signin').on('submit', function(e) {
+						// prevent the default behavoir of a form post
+						e.preventDefault();
+						self.submitLoginForm();
+					});
+
+					// just some UI helper functionality not having anything specifically to do with single sign-on
+					$('#add-form').on('change', function() {
+						$('.iframe-type-wrapper').toggle(200);
+					});
+				},
+
+				// this function is called when you attempt a login
+				submitLoginForm : function() {
+					var self = this;
+
+					// store config data for easy usage in other functions
+					self.config.domain = $('#domain').val();
+					self.config.username = $('#username').val();
+					self.config.password = $('#password').val();
+					self.config.formId = $('#form-id').val();
+
+					// this is the ajax data to validate the credentials
+					var postData = {
+						'domain' : self.config.domain,
+						'username' : self.config.username,
+						'password' : self.config.password,
+						'ajax' : 1,
+						'action' : 'validate_user'
 					};
 
-					$.post('single_sign_on.php', formData, function(data) {
+					// clean out any existing form content from previous calls
+					$('.container .form-content').empty();
+
+					// make an ajax call and handle the response
+					$.post('single_sign_on.php', postData, function(data) {
 						// handle a successful response with a successful login
-						if (data.success === true) {
+						if (data.success === '1') {
+							// store the validated user in the config for convenience and later use
+							self.config.individual = data.response.individuals.individual;
+
+							// now we can do a cross-domain form post to create a valid CCB session on its login page
+							// create an object with name/value pairs that will correspond to the names/values of the login form
 							var elements = {
 								'ax' : 'login',
-								'form[login]' : username,
-								'form[password]' : password
+								'form[login]' : self.config.username,
+								'form[password]' : self.config.password
 							};
-							postCrossDomain(domain, elements);
+							// where we want to post this data
+							var postURL = 'https://' + self.config.domain + '.ccbchurch.com/login.php';
+
+							// send it off!
+							self.postCrossDomain(postURL, elements, self.afterLogin);
 						}
 						// handle a successful response with a bad login
 						else {
@@ -112,52 +175,159 @@
 					.error(function() {
 						// handle errors (such as 500, 302, etc)
 					});
-				});
-			});
 
-			function postCrossDomain(domain, elements) {
+				},
 
-				// initialize a unique timestamp to name and target the iframe
-				var ts = new Date().getTime();
-				
-				// build an iframe object and bind a callback function for when it's done loading
-				var iframe = $('<iframe></iframe>').attr({
-					'name' : ts,
-					'id' : ts
-				}).load(postCrossDomainCallback(domain));
+				// a simple function that will create a hidden iframe and inject a 
+				// form for submission. it's used to simulate an ajax call and allows
+				// us to post cross-domain
+				postCrossDomain : function(postURL, elements, callbackFunction) {
 
-				// build a form object and target the iframe
-				var form = $('<form></form>').attr({
-					'action' : domain + 'login.php',
-					'target' : ts,
-					'method' : 'post'
-				});
-
-				// inject the cross domain iframe and form into the DOM
-				$('.container .cross-domain-content').append(iframe).append(form);
-
-				// loop through the form elements and build/inject them into the form
-				if (typeof elements === 'object') {
-					$.each(elements, function(index, value) {
-						form.append('<input type="text" name="' + index + '" value="' + value + '" />');
+					// initialize a unique timestamp to name and target the iframe
+					var ts = new Date().getTime();
+					
+					// build an iframe object and bind a callback function for when it's done loading
+					var iframe = $('<iframe></iframe>').attr({
+						'name' : ts,
+						'id' : ts
+					}).load(function() {
+						callbackFunction();
 					});
+
+					// build a form object and target the iframe
+					var form = $('<form></form>').attr({
+						'action' : postURL,
+						'target' : ts,
+						'method' : 'post'
+					});
+
+					// inject the cross domain iframe and form into the DOM
+					$('.container .cross-domain-content').append(iframe).append(form);
+
+					// loop through the form elements and build/inject them into the form
+					if (typeof elements === 'object') {
+						$.each(elements, function(index, value) {
+							form.append('<input type="text" name="' + index + '" value="' + value + '" />');
+						});
+					}
+
+					// submit the form
+					form.submit();
+				},
+
+				// a callback function to execute after a successful login
+				afterLogin : function() {
+					var self = singleSignOn;
+
+					// use this function to perform any additional logic AFTER the user is logged in
+					// show a success message
+					$('.templates .alert.success').clone().appendTo('.message');
+					$('.message .alert.success').append('<a href="https://' + self.config.domain + '.ccbchurch.com/index.php" target="_blank">directly</a>');
+
+					// clean up the iframe and form (no longer needed in the DOM)
+					$('.cross-domain-content').empty();
+
+					// if the user wants to test a form, build it
+					if ($('#add-form').is(':checked')) {
+						self.createLoggedInForm();
+					}
+				},
+
+				// a function to render a CCB form after the user is logged in with a session
+				// the first option is simple, just inject an iframe to the form
+				// the second option will scrape the form using curl and render a copy locally, then we'll use the cross domain trick to post it
+				createLoggedInForm : function() {
+					var self = this;
+
+					// a traditional iframe
+					if ($('.iframe-type:checked').val() == 'traditional') {
+						var iframe = $('<iframe></iframe>').attr({
+							'src' : 'https://' + self.config.domain + '.ccbchurch.com/w_form_response.php?form_id=' + self.config.formId,
+							'width' : '100%',
+							'height': '800px'
+						});
+						$('.container .form-content').append(iframe);
+					}
+					// scrape the CCB form contents and render it locally
+					else {
+						
+						// ajax data to get the form html
+						var postData = {
+							'domain' : self.config.domain,
+							'form_id' : self.config.formId,
+							'ajax' : 1,
+							'action' : 'get_form_html'
+						};
+
+						// have curl grab the form html for us so we can use it to copy our own
+						$.post('single_sign_on.php', postData, function(data) {
+							var form = $(data).find('form');
+
+							// cleanup some native form stuff from CCB that's not needed in this example
+							form.find('#sharing').remove();
+							form.children('.block').remove();
+							form.attr('action', '');
+
+							// append the form to the container
+							$('.container .form-content').append(form);
+
+							// prepopulate profile data based on the individual object we saved from earlier
+							// some of these may or may not exist in the form you grab, but no errors should be thrown
+							$('#form-response-row-name_first').val(self.config.individual.first_name);
+							$('#form-response-row-name_last').val(self.config.individual.last_name);
+							if (typeof self.config.individual.addresses.address[0] !== 'undefined') {
+								$('#form-response-row-mailing_street').val(self.config.individual.addresses.address[0].street_address);
+								$('#form-response-row-mailing_city').val(self.config.individual.addresses.address[0].city);
+								$('#form-response-row-mailing_state').val(self.config.individual.addresses.address[0].state);
+								$('#form-response-row-mailing_zip').val(self.config.individual.addresses.address[0].zip);
+							}
+
+							// when you submit the ccb copy of the form, don't actually post it, but rather, use the cross-domain trick to submit
+							form.on('submit', function(e) {
+								e.preventDefault();
+								self.submitCCBForm();
+							});
+
+						}, 'html')
+
+					}
+				},
+
+				// a handler to serialize the form elements and submit using a hidden cross-domain iframe
+				submitCCBForm : function() {
+					var self = this;
+					var elements = {};
+					var form = $('.container .form-content form');
+
+					// get all the elements we need and loop them, building a simple JSON object of name/value pairs
+					form.find("input[type='hidden'], input[type='text'], input[type='radio']:checked, input[type=checkbox]:checked, select, textarea").each(function() {
+						var name = $(this).attr('name');
+						var value = $(this).val();
+						elements[name] = value;
+					});
+
+					var postURL = 'https://' + self.config.domain + '.ccbchurch.com/w_form_response.php?form_id=' + self.config.formId;
+
+					self.postCrossDomain(postURL, elements, self.afterCCBFormSubmit);
+
+				},
+
+				// a callback after you submit the CCB form
+				afterCCBFormSubmit : function() {
+					var self = singleSignOn;
+
+					// clean up the iframe and form (no longer needed in the DOM)
+					$('.cross-domain-content').empty();
+
+					// cleanup the rendered form and give a little info
+					$('.container .form-content').empty().append('<div class="well">You have successfully submitted the CCB form as a logged in user. However we cannot confirm the success of the actual post (based on required fields, etc) so validation needs to be done on this client side to ensure a good submission. If all went well, you should have a matched response.</div>');
 				}
+				
+			};
 
-				// submit the form
-				form.submit();
-			}
-
-			function postCrossDomainCallback(domain) {
-				// use this function to perform any additional logic AFTER the user is logged in
-
-				// show a success message
-				$('.templates .alert.success').clone().appendTo('.message');
-				$('.message .alert.success').append('<a href="' + domain + 'index.php" target="_blank">directly</a>');
-
-				// clean up the iframe and form (no longer needed in the DOM)
-				$('.cross-domain-content').empty();
-			}
-
+			$(document).ready(function() {
+				singleSignOn.initialize();
+			});
 		</script>
 
 	</body>
