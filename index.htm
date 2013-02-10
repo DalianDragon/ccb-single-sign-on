@@ -22,6 +22,24 @@
 			#add-form {
 				margin-bottom: 8px;
 			}
+			#main-form input[type="radio"] + label, #main-form input[type="checkbox"] + label {
+				display: inline;
+			}
+			#main-form input[type="radio"], #main-form input[type="checkbox"] {
+				margin: 0 10px 0 0;
+			}
+			#main-form h1 {
+				font-size: 150%;
+			}
+			#main-form h2 {
+				font-size: 110%;
+			}
+			#main-form .pull-right {
+				float: none;
+			}
+			#main-form textarea {
+				width: 300px;
+			}
 		</style>
 
 		<!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
@@ -267,6 +285,7 @@
 							form.find('#sharing').remove();
 							form.children('.block').remove();
 							form.attr('action', '');
+							form.find('#same-as-above').parent().remove();
 
 							// append the form to the container
 							$('.container .form-content').append(form);
@@ -275,6 +294,7 @@
 							// some of these may or may not exist in the form you grab, but no errors should be thrown
 							$('#form-response-row-name_first').val(self.config.individual.first_name);
 							$('#form-response-row-name_last').val(self.config.individual.last_name);
+							$('#form-response-row-email').val(self.config.individual.email);
 							if (typeof self.config.individual.addresses.address[0] !== 'undefined') {
 								$('#form-response-row-mailing_street').val(self.config.individual.addresses.address[0].street_address);
 								$('#form-response-row-mailing_city').val(self.config.individual.addresses.address[0].city);
