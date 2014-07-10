@@ -4,7 +4,9 @@
 *A short proof of concept for implementing single sign-on with your CCB solution*
 
 I get one FAQ / comment...
+
 *Q: Hey, this kind of looks like a hack.*
+
 *A: Yes. Absolutely. This is 100% a hack. It's just a demo to show you how to securely and reliably provide a single sign on mechanism with the CCB API. You decide if it'll work in your case.*
 
 There may be times when making an API call isn't quite enough. You might need to authenticate a user against the CCB solution. You might also wish to seemlessly integrate your users' CCB logins with your own system (avoiding the hassle of synchronizing credentials or having them login with separate accounts).
